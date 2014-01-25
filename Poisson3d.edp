@@ -1,0 +1,29 @@
+//-------- Creation des maillages
+//- On va creer un maillage cubique (3d) uniformement triangule 
+
+load "msh3" //outils permettant de construire les maillages
+ 
+int nn=20; //determine la precision du maillage
+mesh Th2=square(nn,nn); //ceci est la base du maillage. On construit dans un premier temps la base, puis on ajoutera la 3eme dimension.
+
+int[int] rup=[0,1], rdown=[0,1], rmid=[1,1, 2,1, 3,1, 4,1]; //ce sont les des faces du cube. Elles sont toutes a 1 car on appliquera les conditions aux limites aux faces de label 1, ie partout au bord. 
+
+mesh3 Th3=buildlayers(Th2,nn,zbound=[0,1],labelmid=rmid,labelup=rup,labeldown=rdown); // buildlayers permet de creer un mesh 3d a partir d'une base
+
+//----------Creation des contraintes
+
+func f1=x*y; // laplacien(u)=f1 dans omega
+func g=0; // u=g aux bord
+
+//----------Creation de l'espace d'elements finis
+
+fespace Vh(Th3,P1);
+
+//----------Resolution du probleme
+
+Vh u,v;
+solve Poisson(u,v,solver=LU)=
+	int3d(Th3)(dx(u)*dx(v)+dy(u)*dy(v)+dz(u)*dz(v))
+	-int3d(Th3)(f1*v)
+	+on(1,u=g);
+plot(u,nbiso=7);

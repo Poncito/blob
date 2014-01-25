@@ -1,0 +1,66 @@
+//-------- Importation des bibliotheques
+load "msh3" //outils permettant de construire les maillages
+
+//-------- Creation des maillages
+//- On va creer un maillage cubique (3d) uniformement triangule 
+
+//-Parametres 
+int nn=10; //determine la precision du maillage
+int meshchoice=2; // Choix du mesh
+
+//-Creation du maillage
+mesh Th21=square(nn,nn); //ceci est la base du maillage. On construit dans un premier temps la base, puis on ajoutera la 3eme dimension.
+mesh3 Th31,Th32,Th33;
+if(meshchoice==1){//----- Premier mesh
+	mesh Th22=movemesh(Th21,[x+1,y]);
+	mesh Th23=movemesh(Th21,[x+2,y]);
+	int[int] rup=[0,1], rdown=[0,1], rmid=[1,1, 2,12, 3,1, 4,1]; //ce sont les des faces du cube.
+	Th31=buildlayers(Th21,nn,zbound=[0,1],labelmid=rmid,labelup=rup,labeldown=rdown);
+	rup=[0,2];rdown=[0,2];rmid=[1,2, 2,23, 3,2, 4,21];
+	Th32=buildlayers(Th22,nn,zbound=[0,1],labelmid=rmid,labelup=rup,labeldown=rdown);
+	rup=[0,3];rdown=[0,3];rmid=[1,3, 2,3, 3,3, 4,32];
+	Th33=buildlayers(Th23,nn,zbound=[0,1],labelmid=rmid,labelup=rup,labeldown=rdown);
+}
+else if (meshchoice==2){//----- Second mesh
+	mesh Th22=movemesh(Th21,[x+1,y]);
+	mesh Th23=movemesh(Th21,[x+1,y+1]);
+	int[int] rup=[0,1], rdown=[0,1], rmid=[1,1, 2,12, 3,1, 4,1]; //ce sont les des faces du cube.
+	Th31=buildlayers(Th21,nn,zbound=[0,1],labelmid=rmid,labelup=rup,labeldown=rdown);
+	rup=[0,2];rdown=[0,2];rmid=[1,2, 2,2, 3,23, 4,21];
+	Th32=buildlayers(Th22,nn,zbound=[0,1],labelmid=rmid,labelup=rup,labeldown=rdown);
+	rup=[0,3];rdown=[0,3];rmid=[1,32, 2,3, 3,3, 4,3];
+	Th33=buildlayers(Th23,nn,zbound=[0,1],labelmid=rmid,labelup=rup,labeldown=rdown);
+}
+mesh3 Th3=Th31+Th32+Th33;
+mesh3 Th3a=Th31+Th32;
+mesh3 Th3b=Th32+Th33;
+
+//----------Creation des contraintes
+
+func f1=y*z*(sin(x*10)+2); // laplacien(u)=f1 dans omega
+func g=0; // u=g aux bord
+
+//----------Creation de l'espace d'elements finis
+fespace Vha(Th3a,P1);
+fespace Vhb(Th3b,P1);
+Vha ua,va;
+Vhb ub,vb;
+solve Poissona0(ua,va,solver=LU)=
+	int3d(Th3a)(dx(ua)*dx(va)+dy(ua)*dy(va)+dz(ua)*dz(va))
+	-int3d(Th3a)(f1*va)
+	+on(1,ua=g)+on(2,ua=g)+on(23,ua=0);
+solve Poissonb0(ub,vb,solver=LU)=
+	int3d(Th3b)(dx(ub)*dx(vb)+dy(ub)*dy(vb)+dz(ub)*dz(vb))
+	-int3d(Th3b)(f1*vb)
+	+on(2,ub=g)+on(3,ub=g)+on(21,ub=0);
+for (int i=1; i<=5; i++)
+	solve Poissona(ua,va,solver=LU)=
+		int3d(Th3a)(dx(ua)*dx(va)+dy(ua)*dy(va)+dz(ua)*dz(va))
+		-int3d(Th3a)(f1*va)
+		+on(1,ua=g)+on(2,ua=g)+on(23,ua=ub);
+	solve Poissonb(ub,vb,solver=LU)=
+		int3d(Th3b)(dx(ub)*dx(vb)+dy(ub)*dy(vb)+dz(ub)*dz(vb))
+		-int3d(Th3b)(f1*vb)
+		+on(2,ub=g)+on(3,ub=g)+on(21,ub=ua);
+
+plot(ub,ua,nbiso=10);
